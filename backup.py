@@ -21,7 +21,7 @@ import tarfile
 
 class Config:
     # Config File
-    filename = ".backup_settings"
+    filename = os.path.dirname(os.path.realpath(__file__)) + "/.backup_settings"
     
     dropbox = {}
     
