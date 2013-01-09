@@ -64,7 +64,7 @@ class Config:
 
 class DropboxBackup:
     # Debug mode
-    DEBUG = True
+    DEBUG = False
     
     BACKUP_TEMP = "/tmp"
     
@@ -173,10 +173,10 @@ class DropboxBackup:
 
                     outfile.write(encryptor.encrypt(chunk))
                     
-    def decryptFile(self, in_filename, out_filename=None, chunksize=24*1024):
+    def decryptFile(self, data, out_filename=None, chunksize=24*1024):
         if DropboxBackup.DEBUG: print("Decrypting :", in_filename)
-        
-        key = hashlib.sha256(self.cnf.dropbox['aes_pass']).digest()
+        in_filename = data[0]
+        key = hashlib.sha256(data[1]).digest()
         
         if not out_filename:
             out_filename = os.path.splitext(in_filename)[0]
@@ -226,12 +226,12 @@ parser = argparse.ArgumentParser(description='Encrypts and uploads to dropbox a 
 
 parser.add_argument('--setup', action='store_true', help="Sets up the dropbox connection.")
 parser.add_argument('--backup', action='store', help="Backs up encrypted folder to dropbox.")
-parser.add_argument('--decrypt', action='store', help="Decrypt a file.")
+parser.add_argument('--decrypt', nargs=2, metavar=('FILE', 'PASSWORD'), action='store', help="Decrypt a file")
 parser.add_argument('--search', action='store', help="Finds files matching string and prints them from the app dir.")
 
 args = parser.parse_args()
 
-if args.setup == False and args.backup == None and args.decrypt == None and args.search == None:
+if args.setup == False and args.backup == None and args.decrypt[0] == None and args.search == None:
     parser.print_help()
     raise SystemExit
 
@@ -240,9 +240,9 @@ db = DropboxBackup()
 if args.setup:
     db.auth(args.setup)
 
-elif (args.decrypt != None):
+elif (args.decrypt[0] != None and args.decrypt[0] != None):
     
-    if not(os.path.exists(args.decrypt)):
+    if not(os.path.exists(args.decrypt[0])):
         print(args.decrypt + " does not exist.")
         raise SystemExit
     
