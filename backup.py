@@ -240,7 +240,7 @@ db = DropboxBackup()
 if args.setup:
     db.auth(args.setup)
 
-elif (args.decrypt[0] != None and args.decrypt[0] != None):
+elif (args.decrypt[0] != None and args.decrypt[1] != None):
     
     if not(os.path.exists(args.decrypt[0])):
         print(args.decrypt + " does not exist.")
