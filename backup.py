@@ -6,7 +6,7 @@ from __future__ import print_function
 import ConfigParser
 
 # Import standard libs
-import sys, os.path, webbrowser, argparse
+import sys, os.path, webbrowser, argparse, logging, logging.handlers
 
 # Include the Dropbox SDK libraries
 from dropbox import client, rest, session
@@ -68,6 +68,8 @@ class DropboxBackup:
     
     BACKUP_TEMP = "/tmp"
     
+    global logger
+    
     def __init__(self):
         self.cnf = Config()
         
@@ -97,8 +99,11 @@ class DropboxBackup:
             
             try:
                 request_token = self.sess.obtain_request_token()
-            except:
-                print(" Check application configuration, invalid credientials.")
+            except rest.ErrorResponse:
+                logger.error("Invalid applications credentials.")
+                raise SystemExit
+            except rest.RESTSocketError:
+                logger.error("Cannot connect to Dropbox Service.")
                 raise SystemExit
             
             url = self.sess.build_authorize_url(request_token)
@@ -118,8 +123,11 @@ class DropboxBackup:
             # This will fail if the user didn't visit the above URL and hit 'Allow'
             try:
                 access_token = self.sess.obtain_access_token(request_token)
-            except:
-                print("\n Request for tokens DENIED.")
+            except rest.ErrorResponse as e:
+                logger.error("User did not allow access to application, Token is disabled or invalid.")
+                raise SystemExit
+            except rest.RESTSocketError:
+                logger.error("Cannot connect to Dropbox Service.")
                 raise SystemExit
             
             self.cnf.dropbox['at_key'] = access_token.key
@@ -133,11 +141,12 @@ class DropboxBackup:
             
         self.client = client.DropboxClient(self.sess)
         
-        if DropboxBackup.DEBUG: print("Authenticated.")
+        logger.info("Authenticated.")
     
     def upload(self, filePath):
-        if DropboxBackup.DEBUG: print("Now uploading: ", filePath, ">> ", end='')
         size = os.path.getsize(filePath)
+        logger.info("Uploading: " + filePath + " size: " + str(size/1048576) + " MB")
+        
         uploader = self.client.get_chunked_uploader(open(filePath, 'rb'), size)
         while uploader.offset < size:
             upload = uploader.upload_chunked()
@@ -146,9 +155,11 @@ class DropboxBackup:
         if DropboxBackup.DEBUG: print()
 
         uploader.finish("/" + self.cnf.dropbox['sitename'] + "/" + os.path.basename(filePath), True)
+        
+        logger.info("Upload finished.")
     
     def encryptFile(self, in_filename, out_filename=None, chunksize=64*1024):
-        if DropboxBackup.DEBUG: print("Encrypting :", in_filename)
+        logger.info("Encrypting: " + in_filename)
         
         key = hashlib.sha256(self.cnf.dropbox['aes_pass']).digest()
         
@@ -172,9 +183,11 @@ class DropboxBackup:
                         chunk += ' ' * (16 - len(chunk) % 16)
 
                     outfile.write(encryptor.encrypt(chunk))
+        
+        logger.info("Encryption finished.")
                     
     def decryptFile(self, data, out_filename=None, chunksize=24*1024):
-        if DropboxBackup.DEBUG: print("Decrypting :", in_filename)
+        logger.info("Decrypting :" + in_filename)
         in_filename = data[0]
         key = hashlib.sha256(data[1]).digest()
         
@@ -194,53 +207,96 @@ class DropboxBackup:
                     outfile.write(decryptor.decrypt(chunk))
 
                 outfile.truncate(origsize)
+        
+        logger.info("Decryption finished.")
                 
     def archive(self, backupDirectory):
+        logger.info("ARCHIVE: Running archival process of: " + backupDirectory + '.')
         if os.path.exists(backupDirectory):
             self.backupDirectory = backupDirectory
         elif backupDirectory != 'decrypt':
-            print(backupDirectory + " does not refer to a directory on the machine.")
+            logger.error("Cannot complete archival of: " + backupDirectory + ", does not refer to a directory on the machine.")
             raise SystemExit
         
+        logger.info("ARCHIVE: Tarring directory...")
         basename = os.path.basename(self.backupDirectory)
         tar = tarfile.open(DropboxBackup.BACKUP_TEMP + "/" + basename + ".tar.bz2" ,"w:bz2")
         tar.add(self.backupDirectory)
         tar.close()
+        logger.info("ARCHIVE: Tarring finished.")
         
         self.encryptFile(DropboxBackup.BACKUP_TEMP + "/" + basename + ".tar.bz2")
         
+        logger.info("ARCHIVE: Deleting unencrypted tar.")
         os.remove(DropboxBackup.BACKUP_TEMP + "/" + basename + ".tar.bz2")
         
         self.upload(DropboxBackup.BACKUP_TEMP + "/" + basename + ".tar.bz2.enc")
         
+        logger.info("ARCHIVE: Deleting encrypted tar.")
         os.remove(DropboxBackup.BACKUP_TEMP + "/" + basename + ".tar.bz2.enc")
     
     def search(self, path, query = ''):
+        logger.info('Running Dropbox search: query = ' + query + ' path = ' + path + '.')
         return self.client.search("/" + self.cnf.dropbox['sitename'] + "/" + path, query)
         
     
     def delete_old(self, daysOld):
         pass
-    
+
+## ARGUMENT PARSING
 parser = argparse.ArgumentParser(description='Encrypts and uploads to dropbox a specified folder. Also provides decryption functionality.')
 
+# Add arguments
 parser.add_argument('--setup', action='store_true', help="Sets up the dropbox connection.")
 parser.add_argument('--backup', action='store', help="Backs up encrypted folder to dropbox.")
 parser.add_argument('--decrypt', nargs=2, metavar=('FILE', 'PASSWORD'), action='store', help="Decrypt a file")
 parser.add_argument('--search', action='store', help="Finds files matching string and prints them from the app dir.")
 
+# Parse arguments
 args = parser.parse_args()
 
+# Check if there is no options selected
 if args.setup == False and args.backup == None and args.decrypt == None and args.search == None:
     parser.print_help()
     raise SystemExit
 
+## LOGGING
+# Set up logger object
+logger = logging.getLogger('DropboxLogger')
+
+# Set maximum log level for the logger
+logger.setLevel(logging.DEBUG)
+
+# Define the format for the logging
+formatter = logging.Formatter(fmt='%(asctime)s %(levelname)s(%(process)d): %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')    
+
+# create file handler for saving and rotating a physical log file
+fileHandler = logging.handlers.RotatingFileHandler(os.path.dirname(os.path.realpath(__file__)) + '/log_backup.txt', maxBytes=10240)
+
+# create console handler with a higher log level
+ch = logging.StreamHandler()
+
+# Give handlers formatting
+fileHandler.setFormatter(formatter)
+ch.setFormatter(formatter)
+
+# Only permit higher log levels
+ch.setLevel(logging.ERROR)
+
+# Add handlers
+logger.addHandler(fileHandler)
+logger.addHandler(ch)
+
+# DropboxBackup object
 db = DropboxBackup()
 
+## ARGUMENT COMMAND PARSING
 if args.setup:
+    logger.info("Setup option selected.")
     db.auth(args.setup)
 
 elif args.decrypt != None and (args.decrypt[0] != None and args.decrypt[1] != None):
+    logger.info("Decrypt option selected.")
     
     if not(os.path.exists(args.decrypt[0])):
         print(args.decrypt + " does not exist.")
@@ -249,10 +305,13 @@ elif args.decrypt != None and (args.decrypt[0] != None and args.decrypt[1] != No
     db.decryptFile(args.decrypt)
     
 elif (args.backup != None):
+    logger.info("Backup option selected.")
     db.auth()
     db.archive(args.backup)
 
 elif (args.search != None):
+    logger.info("Search option selected.")
+    
     db.auth()
     files = db.search("",args.search)
     
