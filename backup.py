@@ -231,7 +231,7 @@ parser.add_argument('--search', action='store', help="Finds files matching strin
 
 args = parser.parse_args()
 
-if args.setup == False and args.backup == None and args.decrypt[0] == None and args.search == None:
+if args.setup == False and args.backup == None and args.decrypt == None and args.search == None:
     parser.print_help()
     raise SystemExit
 
@@ -240,7 +240,7 @@ db = DropboxBackup()
 if args.setup:
     db.auth(args.setup)
 
-elif (args.decrypt[0] != None and args.decrypt[1] != None):
+elif args.decrypt != None and (args.decrypt[0] != None and args.decrypt[1] != None):
     
     if not(os.path.exists(args.decrypt[0])):
         print(args.decrypt + " does not exist.")
