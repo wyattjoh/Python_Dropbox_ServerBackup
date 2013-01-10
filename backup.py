@@ -250,7 +250,13 @@ class DropboxBackup:
     
     def search(self, path, query = ''):
         logger.info('Running Dropbox search: query = ' + query + ' path = ' + path + '.')
-        return self.client.search("/" + self.cnf.dropbox['sitename'] + "/" + path, query)
+        
+        try:
+            search_results = self.client.search("/" + self.cnf.dropbox['sitename'] + "/" + path, query)
+        except rest.ErrorResponse as e:
+            logger.error("Dropbox error: " + e)
+        
+        return search_results
         
     
     def delete_old(self, daysOld):
@@ -264,6 +270,7 @@ parser.add_argument('--setup', action='store_true', help="Sets up the dropbox co
 parser.add_argument('--backup', action='store', help="Backs up encrypted folder to dropbox.")
 parser.add_argument('--decrypt', nargs=2, metavar=('FILE', 'PASSWORD'), action='store', help="Decrypt a file")
 parser.add_argument('--search', action='store', help="Finds files matching string and prints them from the app dir.")
+parser.add_argument('--debug', '-d', action='store_true', help="Enables the debug mode")
 
 # Parse arguments
 args = parser.parse_args()
@@ -294,7 +301,10 @@ fileHandler.setFormatter(formatter)
 ch.setFormatter(formatter)
 
 # Only permit higher log levels
-ch.setLevel(logging.ERROR)
+if args.debug:
+    ch.setLevel(logging.DEBUG)
+else:
+    ch.setLevel(logging.ERROR)
 
 # Add handlers
 logger.addHandler(fileHandler)
