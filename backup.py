@@ -48,13 +48,16 @@ class Config:
     def load(self):
         self.config.read(Config.filename)
         
-        self.get('app_key')
-        self.get('app_secret')
-        self.get('access_type')
-        self.get('sitename')
-        self.get('aes_pass')
-        self.get('at_key')
-        self.get('at_sec')
+        fields = {'app_key', 'app_secret', 'access_type', 'sitename', 'aes_pass', 'at_key', 'at_sec'}
+        
+        for field in fields:
+            logger.debug("Getting config option: " + field)
+            try:
+                self.get(field)
+            except ConfigParser.NoOptionError:
+                logger.error("Option (" + field + ") not in config file.")
+                # TODO: Add option detection and correction (default options)
+                raise SystemExit
         
     def printOut(self):
         for key in Config.dropbox:
