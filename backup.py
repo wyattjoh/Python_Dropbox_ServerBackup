@@ -8,6 +8,9 @@ import ConfigParser
 # Import standard libs
 import sys, os.path, webbrowser, argparse, logging, logging.handlers
 
+# Assure that all operations involving files only allow user readable
+os.umask(0077)
+
 # Include the Dropbox SDK libraries
 from dropbox import client, rest, session
 
