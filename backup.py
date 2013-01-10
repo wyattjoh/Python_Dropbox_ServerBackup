@@ -30,6 +30,8 @@ class Config:
     
     config = ConfigParser.RawConfigParser()
     
+    # TODO: Add logging to Config class
+    
     def __init__(self):
         self.config.add_section('dropbox')
     
@@ -78,6 +80,8 @@ class DropboxBackup:
         
     def auth(self, setup = False):
         if not(self.cnf.available()) or setup:
+            
+            logger.info("Running setup...")
             
             print(" == Dropbox Application Setup ==\n")
             self.cnf.dropbox['app_key'] = raw_input(" Dropbox App Key: ")
@@ -139,12 +143,15 @@ class DropboxBackup:
             self.cnf.save()
             
         else:
+            
+            logger.debug("Loaded configuration.")
+            
             self.sess = session.DropboxSession(self.cnf.dropbox['app_key'], self.cnf.dropbox['app_secret'], self.cnf.dropbox['access_type'])
             self.sess.set_token(self.cnf.dropbox['at_key'],self.cnf.dropbox['at_sec'])
             
         self.client = client.DropboxClient(self.sess)
         
-        logger.info("Authenticated.")
+        logger.debug("Authenticated.")
     
     def upload(self, filePath):
         size = os.path.getsize(filePath)
@@ -153,11 +160,11 @@ class DropboxBackup:
         uploader = self.client.get_chunked_uploader(open(filePath, 'rb'), size)
         while uploader.offset < size:
             upload = uploader.upload_chunked()
-            if DropboxBackup.DEBUG: print(".", end='')
+            logger.debug(" ---> " + str(uploader.offset/1048576) + " MB uploaded")
         
         if DropboxBackup.DEBUG: print()
 
-        uploader.finish("/" + self.cnf.dropbox['sitename'] + "/" + os.path.basename(filePath), True)
+        uploader.finish("/" + self.cnf.dropbox['sitename'] + "/" + os.path.basename(os.path.normpath(filePath)), True)
         
         logger.info("Upload finished.")
     
@@ -295,11 +302,11 @@ db = DropboxBackup()
 
 ## ARGUMENT COMMAND PARSING
 if args.setup:
-    logger.info("Setup option selected.")
+    logger.debug("Setup option selected.")
     db.auth(args.setup)
 
 elif args.decrypt != None and (args.decrypt[0] != None and args.decrypt[1] != None):
-    logger.info("Decrypt option selected.")
+    logger.debug("Decrypt option selected.")
     
     if not(os.path.exists(args.decrypt[0])):
         print(args.decrypt + " does not exist.")
@@ -308,15 +315,16 @@ elif args.decrypt != None and (args.decrypt[0] != None and args.decrypt[1] != No
     db.decryptFile(args.decrypt)
     
 elif (args.backup != None):
-    logger.info("Backup option selected.")
+    logger.debug("Backup option selected.")
     db.auth()
     db.archive(args.backup)
 
 elif (args.search != None):
-    logger.info("Search option selected.")
+    logger.debug("Search option selected.")
     
     db.auth()
     files = db.search("",args.search)
     
     for file in files:
         print(file['path'])
+logger.info("Done.")
