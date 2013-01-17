@@ -200,8 +200,8 @@ class DropboxBackup:
         logger.info("Encryption finished.")
                     
     def decryptFile(self, data, out_filename=None, chunksize=24*1024):
-        logger.info("Decrypting :" + in_filename)
         in_filename = data[0]
+        logger.info("Decrypting :" + in_filename)
         key = hashlib.sha256(data[1]).digest()
         
         if not out_filename:
