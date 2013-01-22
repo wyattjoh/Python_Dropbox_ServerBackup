@@ -164,6 +164,7 @@ class DropboxBackup:
         
         uploader = self.client.get_chunked_uploader(open(filePath, 'rb'), size)
         while uploader.offset < size:
+            logger.debug("Uploading chunk...")
             upload = uploader.upload_chunked()
             logger.debug(" ---> " + str(uploader.offset/1048576) + " MB uploaded")
         
