@@ -105,6 +105,8 @@ class DropboxBackup:
             print(" DO NOT LOSE THIS PASSWORD, REQUIRED TO RESTORE!")
             self.cnf.dropbox['aes_pass'] = raw_input(" AES PASS: ")
             
+            self.cnf.dropbox['aes_pass'].replace(" ", "")
+            
             self.sess = session.DropboxSession(self.cnf.dropbox['app_key'], self.cnf.dropbox['app_secret'], self.cnf.dropbox['access_type'])
             
             try:
