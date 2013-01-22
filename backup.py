@@ -236,7 +236,7 @@ class DropboxBackup:
         logger.info("ARCHIVE: Tarring directory...")
         basename = os.path.basename(os.path.normpath(self.backupDirectory))
         tar = tarfile.open(DropboxBackup.BACKUP_TEMP + "/" + basename + ".tar.bz2" ,"w:bz2")
-        tar.add(self.backupDirectory)
+        tar.add(self.backupDirectory, arcname=basename+'_backup')
         tar.close()
         logger.info("ARCHIVE: Tarring finished.")
         
