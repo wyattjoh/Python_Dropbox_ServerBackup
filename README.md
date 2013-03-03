@@ -1,5 +1,7 @@
-=== Python Encrypted Dropbox Backup
-== Usage
+Python Encrypted Dropbox Backup
+=====================================
+Usage
+-------
 ```
 usage: backup.py [-h] [--setup] [--backup BACKUP] [--decrypt FILE PASSWORD]
                  [--search SEARCH] [--debug]
@@ -18,4 +20,6 @@ optional arguments:
   --debug, -d           Enables the debug mode
 ```
 
-== Installation
+Installation
+--------------
+ Coming soon!
